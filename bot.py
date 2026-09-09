@@ -155,4 +155,26 @@ async def results(interaction: discord.Interaction):
     for entry_id in range(1, entry_counter + 1):
         votes = votes_by_entry.get(entry_id, 0)
         result_lines.append(
-            f"📸
+            f"📸 Entry #{entry_id} — **{votes} vote(s)**"
+        )
+
+    total_votes = len(user_votes)
+
+    results_text = (
+        "🏆 **PHOTO CONTEST RESULTS**\n\n"
+        + "\n".join(result_lines)
+        + f"\n\n🗳️ Total votes: **{total_votes}**"
+    )
+
+    await interaction.response.send_message(
+        results_text,
+        ephemeral=True
+    )
+
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+if not TOKEN:
+    raise ValueError("DISCORD_TOKEN is not set")
+
+bot.run(TOKEN)
