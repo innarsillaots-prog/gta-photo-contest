@@ -42,7 +42,7 @@ class VoteButton(discord.ui.View):
         )
 
         message = (
-            "✅ Your vote for Entry #"
+            "✅ Your vote for Photo #"
             + str(self.entry_id)
             + " has been recorded!"
         )
@@ -124,19 +124,19 @@ async def submit(
 
     view = VoteButton(entry_id)
 
-    entry_text = (
-        "📸 Entry #"
+    photo_text = (
+        "📸 Photo #"
         + str(entry_id)
     )
 
     await channel.send(
-        content=entry_text,
+        content=photo_text,
         file=file,
         view=view
     )
 
     confirmation = (
-        "✅ Your photo was submitted anonymously as Entry #"
+        "✅ Your photo was submitted anonymously as Photo #"
         + str(entry_id)
         + "!"
     )
@@ -165,7 +165,7 @@ async def results(interaction: discord.Interaction):
 
     if entry_counter == 0:
         await interaction.response.send_message(
-            "📊 There are no contest entries yet.",
+            "📊 There are no contest photos yet.",
             ephemeral=True
         )
         return
@@ -180,7 +180,7 @@ async def results(interaction: discord.Interaction):
         )
 
         line = (
-            "📸 Entry #"
+            "📸 Photo #"
             + str(entry_id)
             + " — "
             + str(votes)
@@ -206,7 +206,7 @@ async def results(interaction: discord.Interaction):
 
 @bot.tree.command(
     name="entries",
-    description="View contest entry owners"
+    description="View contest photo owners"
 )
 async def entries(interaction: discord.Interaction):
 
@@ -215,14 +215,14 @@ async def entries(interaction: discord.Interaction):
         or not interaction.user.guild_permissions.administrator
     ):
         await interaction.response.send_message(
-            "❌ Only administrators can view entry owners.",
+            "❌ Only administrators can view photo owners.",
             ephemeral=True
         )
         return
 
     if entry_counter == 0:
         await interaction.response.send_message(
-            "📸 There are no contest entries yet.",
+            "📸 There are no contest photos yet.",
             ephemeral=True
         )
         return
@@ -239,7 +239,7 @@ async def entries(interaction: discord.Interaction):
             owner_text = submitter["username"]
 
         line = (
-            "📸 Entry #"
+            "📸 Photo #"
             + str(entry_id)
             + " — "
             + owner_text
@@ -248,7 +248,7 @@ async def entries(interaction: discord.Interaction):
         entry_lines.append(line)
 
     entries_text = (
-        "🔒 ADMIN — CONTEST ENTRIES\n\n"
+        "🔒 ADMIN — CONTEST PHOTOS\n\n"
         + "\n".join(entry_lines)
     )
 
