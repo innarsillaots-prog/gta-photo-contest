@@ -30,12 +30,25 @@ async def submit(
         return
 
     file = await photo.to_file()
+    
+class VoteButton(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
-    await channel.send(
-        content="📸 New anonymous contest entry",
-        file=file
-    )
+    @discord.ui.button(label="Vote", emoji="🗳️", style=discord.ButtonStyle.primary)
+    async def vote(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            "✅ Your vote has been recorded!",
+            ephemeral=True
+        )
 
+view = VoteButton()
+
+await channel.send(
+    content="📸 New anonymous contest entry",
+    file=file,
+    view=view
+)
     await interaction.response.send_message(
         "✅ Your photo was submitted anonymously!",
         ephemeral=True
