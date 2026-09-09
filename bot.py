@@ -5,12 +5,16 @@ from discord.ext import commands
 
 PHOTO_CONTEST_CHANNEL_ID = 1547228944728592435
 
-voted_users = set()
+# Temporary contest data
+entry_counter = 0
+votes_by_entry = {}
+user_votes = {}
 
 
 class VoteButton(discord.ui.View):
-    def __init__(self):
+    def __init__(self, entry_id):
         super().__init__(timeout=None)
+        self.entry_id = entry_id
 
     @discord.ui.button(
         label="Vote",
@@ -24,17 +28,24 @@ class VoteButton(discord.ui.View):
     ):
         user_id = interaction.user.id
 
-        if user_id in voted_users:
+        # One vote per user for the whole contest
+        if user_id in user_votes:
             await interaction.response.send_message(
                 "❌ You have already voted in this contest.",
                 ephemeral=True
             )
             return
 
-        voted_users.add(user_id)
+        # Save which entry this user voted for
+        user_votes[user_id] = self.entry_id
+
+        # Add one vote to this entry
+        votes_by_entry[self.entry_id] = (
+            votes_by_entry.get(self.entry_id, 0) + 1
+        )
 
         await interaction.response.send_message(
-            "✅ Your vote has been recorded!",
+            f"✅ Your vote for Entry #{self.entry_id} has been recorded!",
             ephemeral=True
         )
 
@@ -75,6 +86,8 @@ async def submit(
     interaction: discord.Interaction,
     photo: discord.Attachment
 ):
+    global entry_counter
+
     channel = bot.get_channel(PHOTO_CONTEST_CHANNEL_ID)
 
     if channel is None:
@@ -84,24 +97,62 @@ async def submit(
         )
         return
 
+    # Only allow images
+    if photo.content_type is not None:
+        if not photo.content_type.startswith("image/"):
+            await interaction.response.send_message(
+                "❌ Please submit an image file.",
+                ephemeral=True
+            )
+            return
+
+    entry_counter += 1
+    entry_id = entry_counter
+
+    votes_by_entry[entry_id] = 0
+
     file = await photo.to_file()
-    view = VoteButton()
+    view = VoteButton(entry_id)
 
     await channel.send(
-        content="📸 New anonymous contest entry",
+        content=f"📸 **Entry #{entry_id}**",
         file=file,
         view=view
     )
 
     await interaction.response.send_message(
-        "✅ Your photo was submitted anonymously!",
+        f"✅ Your photo was submitted anonymously as Entry #{entry_id}!",
         ephemeral=True
     )
 
 
-TOKEN = os.getenv("DISCORD_TOKEN")
+@bot.tree.command(
+    name="results",
+    description="View the current contest results"
+)
+async def results(interaction: discord.Interaction):
 
-if not TOKEN:
-    raise ValueError("DISCORD_TOKEN is not set")
+    # Admin only
+    if (
+        not isinstance(interaction.user, discord.Member)
+        or not interaction.user.guild_permissions.administrator
+    ):
+        await interaction.response.send_message(
+            "❌ Only administrators can view the results.",
+            ephemeral=True
+        )
+        return
 
-bot.run(TOKEN)
+    if entry_counter == 0:
+        await interaction.response.send_message(
+            "📊 There are no contest entries yet.",
+            ephemeral=True
+        )
+        return
+
+    result_lines = []
+
+    for entry_id in range(1, entry_counter + 1):
+        votes = votes_by_entry.get(entry_id, 0)
+        result_lines.append(
+            f"📸
