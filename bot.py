@@ -66,7 +66,7 @@ await channel.send(
     file=file,
     view=view
 )
-    await interaction.response.send_message(
+await interaction.response.send_message(
         "✅ Your photo was submitted anonymously!",
         ephemeral=True
     )
