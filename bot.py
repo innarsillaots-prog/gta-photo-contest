@@ -6,6 +6,8 @@ intents = discord.Intents.default()
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+PHOTO_CONTEST_CHANNEL_ID = 1547228944728592435
+
 @bot.event
 async def on_ready():
     print(f"Bot is online as {bot.user}")
@@ -18,8 +20,24 @@ async def submit(
     interaction: discord.Interaction,
     photo: discord.Attachment
 ):
+    channel = bot.get_channel(PHOTO_CONTEST_CHANNEL_ID)
+
+    if channel is None:
+        await interaction.response.send_message(
+            "❌ Photo contest channel was not found.",
+            ephemeral=True
+        )
+        return
+
+    file = await photo.to_file()
+
+    await channel.send(
+        content="📸 New anonymous contest entry",
+        file=file
+    )
+
     await interaction.response.send_message(
-        "✅ Your photo was received!",
+        "✅ Your photo was submitted anonymously!",
         ephemeral=True
     )
 @bot.event
