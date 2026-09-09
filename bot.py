@@ -13,7 +13,15 @@ async def on_ready():
 @bot.tree.command(name="ping", description="Check if the bot is working")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("🏁 GTA Photo Contest bot is online!")
-
+@bot.tree.command(name="submit", description="Submit a photo to the contest")
+async def submit(
+    interaction: discord.Interaction,
+    photo: discord.Attachment
+):
+    await interaction.response.send_message(
+        "✅ Your photo was received!",
+        ephemeral=True
+    )
 @bot.event
 async def setup_hook():
     await bot.tree.sync()
