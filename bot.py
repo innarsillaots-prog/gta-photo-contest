@@ -61,12 +61,12 @@ class VoteButton(discord.ui.View):
 
 view = VoteButton()
 
-await channel.send(
+    await channel.send(
     content="📸 New anonymous contest entry",
     file=file,
     view=view
 )
-await interaction.response.send_message(
+    await interaction.response.send_message(
         "✅ Your photo was submitted anonymously!",
         ephemeral=True
     )
