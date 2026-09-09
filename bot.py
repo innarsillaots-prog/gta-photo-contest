@@ -12,9 +12,9 @@ entry_submitters = {}
 
 
 class VoteButton(discord.ui.View):
-    def __init__(self, entry_id):
+    def __init__(self, photo_id):
         super().__init__(timeout=None)
-        self.entry_id = entry_id
+        self.photo_id = photo_id
 
     @discord.ui.button(
         label="Vote",
@@ -28,24 +28,45 @@ class VoteButton(discord.ui.View):
     ):
         user_id = interaction.user.id
 
-        if user_id in user_votes:
+        previous_vote = user_votes.get(user_id)
+
+        if previous_vote == self.photo_id:
             await interaction.response.send_message(
-                "❌ You have already voted in this contest.",
+                "✅ You have already voted for Photo #"
+                + str(self.photo_id)
+                + ".",
                 ephemeral=True
             )
             return
 
-        user_votes[user_id] = self.entry_id
+        # Remove old vote if user is changing their vote
+        if previous_vote is not None:
+            old_count = votes_by_entry.get(previous_vote, 0)
 
-        votes_by_entry[self.entry_id] = (
-            votes_by_entry.get(self.entry_id, 0) + 1
+            if old_count > 0:
+                votes_by_entry[previous_vote] = old_count - 1
+
+        # Save new vote
+        user_votes[user_id] = self.photo_id
+
+        votes_by_entry[self.photo_id] = (
+            votes_by_entry.get(self.photo_id, 0) + 1
         )
 
-        message = (
-            "✅ Your vote for Photo #"
-            + str(self.entry_id)
-            + " has been recorded!"
-        )
+        if previous_vote is None:
+            message = (
+                "✅ Voted for Photo #"
+                + str(self.photo_id)
+                + "!"
+            )
+        else:
+            message = (
+                "🔄 Your vote was changed from Photo #"
+                + str(previous_vote)
+                + " to Photo #"
+                + str(self.photo_id)
+                + "!"
+            )
 
         await interaction.response.send_message(
             message,
@@ -111,22 +132,27 @@ async def submit(
         return
 
     entry_counter += 1
-    entry_id = entry_counter
+    photo_id = entry_counter
 
-    votes_by_entry[entry_id] = 0
+    votes_by_entry[photo_id] = 0
 
-    entry_submitters[entry_id] = {
+    if isinstance(interaction.user, discord.Member):
+        nickname = interaction.user.display_name
+    else:
+        nickname = str(interaction.user)
+
+    entry_submitters[photo_id] = {
         "user_id": interaction.user.id,
-        "username": str(interaction.user)
+        "nickname": nickname
     }
 
     file = await photo.to_file()
 
-    view = VoteButton(entry_id)
+    view = VoteButton(photo_id)
 
     photo_text = (
         "📸 Photo #"
-        + str(entry_id)
+        + str(photo_id)
     )
 
     await channel.send(
@@ -137,7 +163,7 @@ async def submit(
 
     confirmation = (
         "✅ Your photo was submitted anonymously as Photo #"
-        + str(entry_id)
+        + str(photo_id)
         + "!"
     )
 
@@ -172,16 +198,16 @@ async def results(interaction: discord.Interaction):
 
     result_lines = []
 
-    for entry_id in range(1, entry_counter + 1):
+    for photo_id in range(1, entry_counter + 1):
 
         votes = votes_by_entry.get(
-            entry_id,
+            photo_id,
             0
         )
 
         line = (
             "📸 Photo #"
-            + str(entry_id)
+            + str(photo_id)
             + " — "
             + str(votes)
             + " vote(s)"
@@ -229,18 +255,18 @@ async def entries(interaction: discord.Interaction):
 
     entry_lines = []
 
-    for entry_id in range(1, entry_counter + 1):
+    for photo_id in range(1, entry_counter + 1):
 
-        submitter = entry_submitters.get(entry_id)
+        submitter = entry_submitters.get(photo_id)
 
         if submitter is None:
             owner_text = "Unknown"
         else:
-            owner_text = submitter["username"]
+            owner_text = submitter["nickname"]
 
         line = (
             "📸 Photo #"
-            + str(entry_id)
+            + str(photo_id)
             + " — "
             + owner_text
         )
