@@ -5,6 +5,8 @@ from discord.ext import commands
 
 PHOTO_CONTEST_CHANNEL_ID = 1547228944728592435
 
+voted_users = set()
+
 
 class VoteButton(discord.ui.View):
     def __init__(self):
@@ -20,6 +22,17 @@ class VoteButton(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
+        user_id = interaction.user.id
+
+        if user_id in voted_users:
+            await interaction.response.send_message(
+                "❌ You have already voted in this contest.",
+                ephemeral=True
+            )
+            return
+
+        voted_users.add(user_id)
+
         await interaction.response.send_message(
             "✅ Your vote has been recorded!",
             ephemeral=True
