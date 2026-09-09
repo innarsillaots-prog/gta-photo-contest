@@ -7,7 +7,24 @@ intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 PHOTO_CONTEST_CHANNEL_ID = 1547228944728592435
+class VoteButton(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
+    @discord.ui.button(
+        label="Vote",
+        emoji="🗳️",
+        style=discord.ButtonStyle.primary
+    )
+    async def vote(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        await interaction.response.send_message(
+            "✅ Your vote has been recorded!",
+            ephemeral=True
+        )
 @bot.event
 async def on_ready():
     print(f"Bot is online as {bot.user}")
