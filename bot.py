@@ -9,6 +9,7 @@ entry_counter = 0
 votes_by_entry = {}
 user_votes = {}
 entry_submitters = {}
+entry_photo_urls = {}
 
 contest_open = True
 contest_id = 1
@@ -129,6 +130,7 @@ class NewContestConfirmView(discord.ui.View):
         global votes_by_entry
         global user_votes
         global entry_submitters
+        global entry_photo_urls
         global contest_open
         global contest_id
         global current_theme
@@ -158,6 +160,7 @@ class NewContestConfirmView(discord.ui.View):
         votes_by_entry = {}
         user_votes = {}
         entry_submitters = {}
+        entry_photo_urls = {}
 
         contest_open = True
         current_theme = self.theme
@@ -279,6 +282,78 @@ def build_results_text(title):
     )
 
 
+def get_podium_groups():
+    vote_levels = sorted(
+        {
+            votes_by_entry.get(photo_id, 0)
+            for photo_id in range(1, entry_counter + 1)
+            if votes_by_entry.get(photo_id, 0) > 0
+        },
+        reverse=True
+    )
+
+    top_levels = vote_levels[:3]
+    groups = []
+
+    for votes in top_levels:
+        photo_ids = []
+
+        for photo_id in range(1, entry_counter + 1):
+            if votes_by_entry.get(photo_id, 0) == votes:
+                photo_ids.append(photo_id)
+
+        groups.append(
+            {
+                "votes": votes,
+                "photo_ids": photo_ids
+            }
+        )
+
+    return groups
+
+
+def get_submitter_mention(photo_id):
+    submitter = entry_submitters.get(photo_id)
+
+    if submitter is None:
+        return "Unknown"
+
+    return (
+        "<@"
+        + str(submitter["user_id"])
+        + ">"
+    )
+
+
+def build_podium_description(groups):
+    medal_labels = [
+        ("🥇", "1st"),
+        ("🥈", "2nd"),
+        ("🥉", "3rd")
+    ]
+
+    lines = []
+
+    for index, group in enumerate(groups):
+        medal, place_name = medal_labels[index]
+
+        for photo_id in group["photo_ids"]:
+            line = (
+                medal
+                + " **"
+                + place_name
+                + " — Photo #"
+                + str(photo_id)
+                + "** — "
+                + str(group["votes"])
+                + " vote(s) — "
+                + get_submitter_mention(photo_id)
+            )
+            lines.append(line)
+
+    return "\n".join(lines)
+
+
 @bot.tree.command(
     name="ping",
     description="Check if the bot is working"
@@ -355,11 +430,16 @@ async def submit(
         + str(photo_id)
     )
 
-    await channel.send(
+    sent_message = await channel.send(
         content=photo_text,
         file=file,
         view=view
     )
+
+    if sent_message.attachments:
+        entry_photo_urls[photo_id] = (
+            sent_message.attachments[0].url
+        )
 
     confirmation = (
         "✅ Your photo was submitted anonymously as Photo #"
@@ -497,48 +577,65 @@ async def closecontest(interaction: discord.Interaction):
         for photo_id in range(1, entry_counter + 1)
     )
 
-    winners = []
-
-    for photo_id in range(1, entry_counter + 1):
-        photo_votes = votes_by_entry.get(photo_id, 0)
-
-        if photo_votes == max_votes:
-            winners.append(photo_id)
-
     results_text = build_results_text(
         "🔒 PHOTO CONTEST CLOSED"
     )
 
     if max_votes == 0:
-        admin_winner_text = (
-            "\n\n🏆 No winner — no votes were cast."
+        await interaction.response.send_message(
+            results_text
+            + "\n\n🏆 No winner — no votes were cast.",
+            ephemeral=True
         )
 
-    elif len(winners) == 1:
-        winner_photo_id = winners[0]
+        channel = bot.get_channel(
+            PHOTO_CONTEST_CHANNEL_ID
+        )
 
+        if channel is not None:
+            no_votes_embed = discord.Embed(
+                title="🏁 PHOTO CONTEST CLOSED!",
+                description=(
+                    "🎨 **Theme: "
+                    + str(current_theme)
+                    + "**\n\n"
+                    "No winner this time because no votes were cast."
+                )
+            )
+
+            await channel.send(
+                embed=no_votes_embed
+            )
+
+        return
+
+    groups = get_podium_groups()
+
+    first_place_group = groups[0]
+    first_place_ids = first_place_group["photo_ids"]
+
+    if len(first_place_ids) == 1:
         admin_winner_text = (
             "\n\n🏆 Winner: Photo #"
-            + str(winner_photo_id)
+            + str(first_place_ids[0])
             + " with "
-            + str(max_votes)
+            + str(first_place_group["votes"])
             + " vote(s)!"
         )
-
     else:
-        winner_numbers = []
+        tied_ids = []
 
-        for photo_id in winners:
-            winner_numbers.append(
+        for photo_id in first_place_ids:
+            tied_ids.append(
                 "#"
                 + str(photo_id)
             )
 
         admin_winner_text = (
-            "\n\n🏆 Tie: Photos "
-            + ", ".join(winner_numbers)
+            "\n\n🏆 Tie for 1st: Photos "
+            + ", ".join(tied_ids)
             + " with "
-            + str(max_votes)
+            + str(first_place_group["votes"])
             + " vote(s) each!"
         )
 
@@ -554,56 +651,54 @@ async def closecontest(interaction: discord.Interaction):
     if channel is None:
         return
 
-    theme_line = ""
+    podium_text = build_podium_description(
+        groups
+    )
 
-    if current_theme:
-        theme_line = (
+    public_embed = discord.Embed(
+        title="🏆 PHOTO CONTEST RESULTS!",
+        description=(
             "🎨 **Theme: "
-            + current_theme
+            + str(current_theme)
             + "**\n\n"
+            + podium_text
         )
+    )
 
-    if max_votes == 0:
-        await channel.send(
-            "🏁 **PHOTO CONTEST CLOSED!**\n\n"
-            + theme_line
-            + "No winner this time because no votes were cast."
-        )
-        return
-
-    if len(winners) == 1:
-        winner_photo_id = winners[0]
-
-        submitter = entry_submitters.get(
+    if len(first_place_ids) == 1:
+        winner_photo_id = first_place_ids[0]
+        winner_photo_url = entry_photo_urls.get(
             winner_photo_id
         )
 
-        if submitter is None:
-            winner_name = "Unknown"
-        else:
-            winner_name = (
-                "<@"
-                + str(submitter["user_id"])
-                + ">"
+        if winner_photo_url:
+            public_embed.set_image(
+                url=winner_photo_url
             )
 
-        public_message = (
-            "🏆 **PHOTO CONTEST WINNER!**\n\n"
-            + theme_line
-            + "📸 **Photo #"
-            + str(winner_photo_id)
-            + "**\n"
-            "🗳️ **"
-            + str(max_votes)
-            + " vote(s)**\n"
-            "👤 Winner: "
-            + winner_name
-            + "\n\n"
-            "🎉 Congratulations!"
+        public_embed.set_footer(
+            text=(
+                "Winning photo: Photo #"
+                + str(winner_photo_id)
+            )
         )
 
+        winner_submitter = entry_submitters.get(
+            winner_photo_id
+        )
+
+        if winner_submitter is not None:
+            winner_ping = (
+                "🎉 Congratulations <@"
+                + str(winner_submitter["user_id"])
+                + ">!"
+            )
+        else:
+            winner_ping = "🎉 Congratulations!"
+
         await channel.send(
-            public_message,
+            content=winner_ping,
+            embed=public_embed,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
                 roles=False,
@@ -612,51 +707,34 @@ async def closecontest(interaction: discord.Interaction):
         )
 
     else:
-        public_lines = [
-            "🏆 **PHOTO CONTEST — TIE!**",
-            ""
-        ]
+        winner_mentions = []
 
-        if current_theme:
-            public_lines.append(
-                "🎨 **Theme: "
-                + current_theme
-                + "**"
-            )
-            public_lines.append("")
-
-        for photo_id in winners:
+        for photo_id in first_place_ids:
             submitter = entry_submitters.get(
                 photo_id
             )
 
-            if submitter is None:
-                winner_name = "Unknown"
-            else:
-                winner_name = (
+            if submitter is not None:
+                winner_mentions.append(
                     "<@"
                     + str(submitter["user_id"])
                     + ">"
                 )
 
-            line = (
-                "📸 **Photo #"
-                + str(photo_id)
-                + "** — "
-                + str(max_votes)
-                + " vote(s) — "
-                + winner_name
+        if winner_mentions:
+            winner_ping = (
+                "🎉 Congratulations "
+                + " & ".join(winner_mentions)
+                + "!"
+            )
+        else:
+            winner_ping = (
+                "🎉 Congratulations to the winners!"
             )
 
-            public_lines.append(line)
-
-        public_lines.append("")
-        public_lines.append(
-            "🎉 Congratulations to the winners!"
-        )
-
         await channel.send(
-            "\n".join(public_lines),
+            content=winner_ping,
+            embed=public_embed,
             allowed_mentions=discord.AllowedMentions(
                 users=True,
                 roles=False,
