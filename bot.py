@@ -12,6 +12,7 @@ entry_submitters = {}
 
 contest_open = True
 contest_id = 1
+current_theme = None
 
 
 class VoteButton(discord.ui.View):
@@ -94,10 +95,11 @@ class VoteButton(discord.ui.View):
 
 
 class NewContestConfirmView(discord.ui.View):
-    def __init__(self, admin_id):
+    def __init__(self, admin_id, theme):
         super().__init__(timeout=60)
 
         self.admin_id = admin_id
+        self.theme = theme
 
     async def interaction_check(
         self,
@@ -129,6 +131,7 @@ class NewContestConfirmView(discord.ui.View):
         global entry_submitters
         global contest_open
         global contest_id
+        global current_theme
 
         channel = interaction.client.get_channel(
             PHOTO_CONTEST_CHANNEL_ID
@@ -157,6 +160,7 @@ class NewContestConfirmView(discord.ui.View):
         entry_submitters = {}
 
         contest_open = True
+        current_theme = self.theme
 
         for item in self.children:
             item.disabled = True
@@ -164,6 +168,9 @@ class NewContestConfirmView(discord.ui.View):
         await interaction.response.edit_message(
             content=(
                 "🆕 New photo contest started!\n\n"
+                "🎨 Theme: **"
+                + current_theme
+                + "**\n"
                 "🗑️ Deleted "
                 + str(deleted_photos)
                 + " old photo post(s).\n"
@@ -172,6 +179,18 @@ class NewContestConfirmView(discord.ui.View):
             ),
             view=self
         )
+
+        if channel is not None:
+            announcement = (
+                "📸 **NEW PHOTO CONTEST!**\n\n"
+                "🎨 **Theme: "
+                + current_theme
+                + "**\n\n"
+                "📷 Submit your best photo matching this week's theme!\n"
+                "🗳️ Voting is open!"
+            )
+
+            await channel.send(announcement)
 
         self.stop()
 
@@ -241,8 +260,18 @@ def build_results_text(title):
 
     total_votes = len(user_votes)
 
+    theme_text = ""
+
+    if current_theme:
+        theme_text = (
+            "\n🎨 Theme: **"
+            + current_theme
+            + "**"
+        )
+
     return (
         title
+        + theme_text
         + "\n\n"
         + "\n".join(result_lines)
         + "\n\n🗳️ Total votes: "
@@ -411,8 +440,19 @@ async def entries(interaction: discord.Interaction):
 
         entry_lines.append(line)
 
+    theme_text = ""
+
+    if current_theme:
+        theme_text = (
+            "\n🎨 Theme: **"
+            + current_theme
+            + "**"
+        )
+
     entries_text = (
-        "🔒 ADMIN — CONTEST PHOTOS\n\n"
+        "🔒 ADMIN — CONTEST PHOTOS"
+        + theme_text
+        + "\n\n"
         + "\n".join(entry_lines)
     )
 
@@ -514,10 +554,20 @@ async def closecontest(interaction: discord.Interaction):
     if channel is None:
         return
 
+    theme_line = ""
+
+    if current_theme:
+        theme_line = (
+            "🎨 **Theme: "
+            + current_theme
+            + "**\n\n"
+        )
+
     if max_votes == 0:
         await channel.send(
             "🏁 **PHOTO CONTEST CLOSED!**\n\n"
-            "No winner this time because no votes were cast."
+            + theme_line
+            + "No winner this time because no votes were cast."
         )
         return
 
@@ -539,7 +589,8 @@ async def closecontest(interaction: discord.Interaction):
 
         public_message = (
             "🏆 **PHOTO CONTEST WINNER!**\n\n"
-            "📸 **Photo #"
+            + theme_line
+            + "📸 **Photo #"
             + str(winner_photo_id)
             + "**\n"
             "🗳️ **"
@@ -565,6 +616,14 @@ async def closecontest(interaction: discord.Interaction):
             "🏆 **PHOTO CONTEST — TIE!**",
             ""
         ]
+
+        if current_theme:
+            public_lines.append(
+                "🎨 **Theme: "
+                + current_theme
+                + "**"
+            )
+            public_lines.append("")
 
         for photo_id in winners:
             submitter = entry_submitters.get(
@@ -610,7 +669,13 @@ async def closecontest(interaction: discord.Interaction):
     name="newcontest",
     description="Start a new photo contest"
 )
-async def newcontest(interaction: discord.Interaction):
+@discord.app_commands.describe(
+    theme="Theme for the new photo contest"
+)
+async def newcontest(
+    interaction: discord.Interaction,
+    theme: str
+):
     if not is_admin(interaction):
         await interaction.response.send_message(
             "❌ Only administrators can start a new contest.",
@@ -618,8 +683,20 @@ async def newcontest(interaction: discord.Interaction):
         )
         return
 
+    theme = theme.strip()
+
+    if not theme:
+        await interaction.response.send_message(
+            "❌ Please enter a contest theme.",
+            ephemeral=True
+        )
+        return
+
     warning = (
         "⚠️ START A NEW PHOTO CONTEST?\n\n"
+        "🎨 Theme: **"
+        + theme
+        + "**\n\n"
         "This will delete all photo posts from "
         "the previous contest and reset the photo "
         "numbers, votes, and submitter list.\n\n"
@@ -629,7 +706,8 @@ async def newcontest(interaction: discord.Interaction):
     await interaction.response.send_message(
         warning,
         view=NewContestConfirmView(
-            interaction.user.id
+            interaction.user.id,
+            theme
         ),
         ephemeral=True
     )
