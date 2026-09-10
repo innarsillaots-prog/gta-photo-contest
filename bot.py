@@ -4,6 +4,7 @@ from discord.ext import commands
 
 
 PHOTO_CONTEST_CHANNEL_ID = 1547228944728592435
+WEEKLY_WINNER_CHANNEL_ID = 1547518516750585948
 
 entry_counter = 0
 votes_by_entry = {}
@@ -46,6 +47,18 @@ class VoteButton(discord.ui.View):
         if not contest_open:
             await interaction.response.send_message(
                 "🔒 Voting for this contest is closed.",
+                ephemeral=True
+            )
+            return
+
+        submitter = entry_submitters.get(self.photo_id)
+
+        if (
+            submitter is not None
+            and submitter["user_id"] == interaction.user.id
+        ):
+            await interaction.response.send_message(
+                "❌ You cannot vote for your own photo.",
                 ephemeral=True
             )
             return
@@ -601,6 +614,10 @@ async def closecontest(interaction: discord.Interaction):
         "🔒 PHOTO CONTEST CLOSED"
     )
 
+    winner_channel = bot.get_channel(
+        WEEKLY_WINNER_CHANNEL_ID
+    )
+
     if max_votes == 0:
         await interaction.response.send_message(
             results_text
@@ -608,11 +625,7 @@ async def closecontest(interaction: discord.Interaction):
             ephemeral=True
         )
 
-        channel = bot.get_channel(
-            PHOTO_CONTEST_CHANNEL_ID
-        )
-
-        if channel is not None:
+        if winner_channel is not None:
             no_votes_embed = discord.Embed(
                 title="🏁 PHOTO CONTEST CLOSED!",
                 description=(
@@ -623,7 +636,7 @@ async def closecontest(interaction: discord.Interaction):
                 )
             )
 
-            await channel.send(
+            await winner_channel.send(
                 embed=no_votes_embed
             )
 
@@ -664,11 +677,7 @@ async def closecontest(interaction: discord.Interaction):
         ephemeral=True
     )
 
-    channel = bot.get_channel(
-        PHOTO_CONTEST_CHANNEL_ID
-    )
-
-    if channel is None:
+    if winner_channel is None:
         return
 
     podium_text = build_podium_description(
@@ -716,7 +725,7 @@ async def closecontest(interaction: discord.Interaction):
         else:
             winner_ping = "🎉 Congratulations!"
 
-        await channel.send(
+        await winner_channel.send(
             content=winner_ping,
             embed=public_embed,
             allowed_mentions=discord.AllowedMentions(
@@ -752,7 +761,7 @@ async def closecontest(interaction: discord.Interaction):
                 "🎉 Congratulations to the winners!"
             )
 
-        await channel.send(
+        await winner_channel.send(
             content=winner_ping,
             embed=public_embed,
             allowed_mentions=discord.AllowedMentions(
