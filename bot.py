@@ -12,7 +12,7 @@ user_votes = {}
 entry_submitters = {}
 entry_photo_urls = {}
 
-contest_open = True
+contest_open = False
 contest_id = 1
 current_theme = None
 
