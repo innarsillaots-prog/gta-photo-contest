@@ -12,7 +12,7 @@ user_votes = {}
 entry_submitters = {}
 entry_photo_urls = {}
 
-contest_open = False
+contest_phase = "closed"
 contest_id = 1
 current_theme = None
 
@@ -34,7 +34,7 @@ class VoteButton(discord.ui.View):
         self.add_item(button)
 
     async def vote(self, interaction: discord.Interaction):
-        global contest_open
+        global contest_phase
         global contest_id
 
         if self.photo_contest_id != contest_id:
@@ -44,7 +44,14 @@ class VoteButton(discord.ui.View):
             )
             return
 
-        if not contest_open:
+        if contest_phase == "submissions":
+            await interaction.response.send_message(
+                "⏳ Voting is not open yet. Photo submissions are still open.",
+                ephemeral=True
+            )
+            return
+
+        if contest_phase != "voting":
             await interaction.response.send_message(
                 "🔒 Voting for this contest is closed.",
                 ephemeral=True
@@ -144,7 +151,7 @@ class NewContestConfirmView(discord.ui.View):
         global user_votes
         global entry_submitters
         global entry_photo_urls
-        global contest_open
+        global contest_phase
         global contest_id
         global current_theme
 
@@ -176,6 +183,14 @@ class NewContestConfirmView(discord.ui.View):
                     except discord.HTTPException:
                         pass
 
+                elif message.content.startswith(
+                    "🗳️ **VOTING IS NOW OPEN!**"
+                ):
+                    try:
+                        await message.delete()
+                    except discord.HTTPException:
+                        pass
+
         contest_id += 1
 
         entry_counter = 0
@@ -184,7 +199,7 @@ class NewContestConfirmView(discord.ui.View):
         entry_submitters = {}
         entry_photo_urls = {}
 
-        contest_open = True
+        contest_phase = "submissions"
         current_theme = self.theme
 
         for item in self.children:
@@ -202,8 +217,8 @@ class NewContestConfirmView(discord.ui.View):
                 "🧹 Deleted "
                 + str(deleted_announcements)
                 + " old contest announcement(s).\n"
-                "📸 The next submission will be Photo #1.\n"
-                "🗳️ Voting is open."
+                "📸 Photo submissions are open.\n"
+                "⏳ Voting is not open yet."
             ),
             view=self
         )
@@ -215,7 +230,8 @@ class NewContestConfirmView(discord.ui.View):
                 + current_theme
                 + "**\n\n"
                 "📷 Submit your best photo matching this week's theme!\n"
-                "🗳️ Voting is open!"
+                "✅ Photo submissions are open.\n"
+                "⏳ Voting will open later."
             )
 
             await channel.send(announcement)
@@ -399,9 +415,16 @@ async def submit(
 ):
     global entry_counter
 
-    if not contest_open:
+    if contest_phase == "closed":
         await interaction.response.send_message(
-            "🔒 This contest is closed. New photos cannot be submitted.",
+            "🔒 There is no active photo contest right now.",
+            ephemeral=True
+        )
+        return
+
+    if contest_phase == "voting":
+        await interaction.response.send_message(
+            "🔒 Photo submissions are closed. Voting is now open.",
             ephemeral=True
         )
         return
@@ -484,6 +507,70 @@ async def submit(
         confirmation,
         ephemeral=True
     )
+
+
+@bot.tree.command(
+    name="startvoting",
+    description="Close submissions and open voting"
+)
+async def startvoting(interaction: discord.Interaction):
+    global contest_phase
+
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "❌ Only administrators can start voting.",
+            ephemeral=True
+        )
+        return
+
+    if contest_phase == "closed":
+        await interaction.response.send_message(
+            "❌ There is no active photo contest.",
+            ephemeral=True
+        )
+        return
+
+    if contest_phase == "voting":
+        await interaction.response.send_message(
+            "🗳️ Voting is already open.",
+            ephemeral=True
+        )
+        return
+
+    if entry_counter == 0:
+        await interaction.response.send_message(
+            "📸 There are no submitted photos yet.",
+            ephemeral=True
+        )
+        return
+
+    contest_phase = "voting"
+
+    await interaction.response.send_message(
+        (
+            "🗳️ Voting is now open!\n"
+            "🔒 Photo submissions are now closed."
+        ),
+        ephemeral=True
+    )
+
+    channel = bot.get_channel(
+        PHOTO_CONTEST_CHANNEL_ID
+    )
+
+    if channel is not None:
+        announcement = (
+            "🗳️ **VOTING IS NOW OPEN!**\n\n"
+            "🎨 **Theme: "
+            + str(current_theme)
+            + "**\n\n"
+            "🔒 Photo submissions are now closed.\n"
+            "✅ Everyone can vote for their favourite photo.\n"
+            "🚫 You cannot vote for your own photo.\n"
+            "🔄 You may change your vote before voting closes."
+        )
+
+        await channel.send(announcement)
 
 
 @bot.tree.command(
@@ -580,7 +667,7 @@ async def entries(interaction: discord.Interaction):
     description="Close the current photo contest"
 )
 async def closecontest(interaction: discord.Interaction):
-    global contest_open
+    global contest_phase
 
     if not is_admin(interaction):
         await interaction.response.send_message(
@@ -589,9 +676,19 @@ async def closecontest(interaction: discord.Interaction):
         )
         return
 
-    if not contest_open:
+    if contest_phase == "closed":
         await interaction.response.send_message(
             "🔒 The contest is already closed.",
+            ephemeral=True
+        )
+        return
+
+    if contest_phase == "submissions":
+        await interaction.response.send_message(
+            (
+                "⏳ Voting has not started yet.\n"
+                "Use /startvoting before closing the contest."
+            ),
             ephemeral=True
         )
         return
@@ -603,7 +700,7 @@ async def closecontest(interaction: discord.Interaction):
         )
         return
 
-    contest_open = False
+    contest_phase = "closed"
 
     max_votes = max(
         votes_by_entry.get(photo_id, 0)
@@ -804,11 +901,14 @@ async def newcontest(
         "🎨 Theme: **"
         + theme
         + "**\n\n"
-        "This will delete all photo posts and the old "
-        "contest announcement from the previous contest. "
+        "This will delete all photo posts and old "
+        "contest announcements from the previous contest. "
         "The rules post will stay in the channel.\n\n"
         "Photo numbers, votes, and the submitter list "
         "will also be reset.\n\n"
+        "📸 The new contest will begin in the "
+        "SUBMISSIONS phase.\n"
+        "🗳️ Voting must be opened later with /startvoting.\n\n"
         "🗑️ Deleted contest posts cannot be restored."
     )
 
