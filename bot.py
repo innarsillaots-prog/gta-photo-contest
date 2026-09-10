@@ -137,6 +137,29 @@ class NewContestConfirmView(discord.ui.View):
         global contest_open
         global contest_id
 
+        channel = interaction.client.get_channel(
+            PHOTO_CONTEST_CHANNEL_ID
+        )
+
+        deleted_photos = 0
+
+        if channel is not None:
+            async for message in channel.history(
+                limit=None
+            ):
+                if (
+                    message.author.id
+                    == interaction.client.user.id
+                    and message.content.startswith(
+                        "📸 Photo #"
+                    )
+                ):
+                    try:
+                        await message.delete()
+                        deleted_photos += 1
+                    except discord.HTTPException:
+                        pass
+
         contest_id += 1
 
         entry_counter = 0
@@ -152,6 +175,9 @@ class NewContestConfirmView(discord.ui.View):
         await interaction.response.edit_message(
             content=(
                 "🆕 New photo contest started!\n\n"
+                "🗑️ Deleted "
+                + str(deleted_photos)
+                + " old photo post(s).\n"
                 "📸 The next submission will be Photo #1.\n"
                 "🗳️ Voting is open."
             ),
@@ -568,12 +594,10 @@ async def newcontest(
 
     warning = (
         "⚠️ START A NEW PHOTO CONTEST?\n\n"
-        "This will clear the current photo "
-        "numbers, votes, and submitter list "
-        "from the bot's memory.\n\n"
-        "Old Discord photo posts will remain "
-        "in the channel, but their Vote buttons "
-        "will no longer count for the new contest."
+        "This will delete all photo posts from "
+        "the previous contest and reset the photo "
+        "numbers, votes, and submitter list.\n\n"
+        "🗑️ Deleted photo posts cannot be restored."
     )
 
     await interaction.response.send_message(
