@@ -36,8 +36,7 @@ class VoteButton(discord.ui.View):
 
         if self.photo_contest_id != contest_id:
             await interaction.response.send_message(
-                "🔒 This photo belongs to an old contest. "
-                "Voting is closed.",
+                "🔒 This photo belongs to an old contest. Voting is closed.",
                 ephemeral=True
             )
             return
@@ -62,15 +61,10 @@ class VoteButton(discord.ui.View):
             return
 
         if previous_vote is not None:
-            old_count = votes_by_entry.get(
-                previous_vote,
-                0
-            )
+            old_count = votes_by_entry.get(previous_vote, 0)
 
             if old_count > 0:
-                votes_by_entry[previous_vote] = (
-                    old_count - 1
-                )
+                votes_by_entry[previous_vote] = old_count - 1
 
         user_votes[user_id] = self.photo_id
 
@@ -84,7 +78,6 @@ class VoteButton(discord.ui.View):
                 + str(self.photo_id)
                 + "!"
             )
-
         else:
             message = (
                 "🔄 Your vote was changed from Photo #"
@@ -144,15 +137,11 @@ class NewContestConfirmView(discord.ui.View):
         deleted_photos = 0
 
         if channel is not None:
-            async for message in channel.history(
-                limit=None
-            ):
+            async for message in channel.history(limit=None):
                 if (
                     message.author.id
                     == interaction.client.user.id
-                    and message.content.startswith(
-                        "📸 Photo #"
-                    )
+                    and message.content.startswith("📸 Photo #")
                 ):
                     try:
                         await message.delete()
@@ -201,8 +190,7 @@ class NewContestConfirmView(discord.ui.View):
 
         await interaction.response.edit_message(
             content=(
-                "❌ New contest cancelled. "
-                "Nothing was changed."
+                "❌ New contest cancelled. Nothing was changed."
             ),
             view=self
         )
@@ -225,35 +213,21 @@ bot = ContestBot(
 
 @bot.event
 async def on_ready():
-    print(
-        "Bot is online as "
-        + str(bot.user)
-    )
+    print("Bot is online as " + str(bot.user))
 
 
 def is_admin(interaction: discord.Interaction):
     return (
-        isinstance(
-            interaction.user,
-            discord.Member
-        )
-        and interaction.user
-        .guild_permissions
-        .administrator
+        isinstance(interaction.user, discord.Member)
+        and interaction.user.guild_permissions.administrator
     )
 
 
 def build_results_text(title):
     result_lines = []
 
-    for photo_id in range(
-        1,
-        entry_counter + 1
-    ):
-        votes = votes_by_entry.get(
-            photo_id,
-            0
-        )
+    for photo_id in range(1, entry_counter + 1):
+        votes = votes_by_entry.get(photo_id, 0)
 
         line = (
             "📸 Photo #"
@@ -267,7 +241,7 @@ def build_results_text(title):
 
     total_votes = len(user_votes)
 
-    text = (
+    return (
         title
         + "\n\n"
         + "\n".join(result_lines)
@@ -275,16 +249,12 @@ def build_results_text(title):
         + str(total_votes)
     )
 
-    return text
-
 
 @bot.tree.command(
     name="ping",
     description="Check if the bot is working"
 )
-async def ping(
-    interaction: discord.Interaction
-):
+async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🏁 GTA Photo Contest bot is online!"
     )
@@ -302,8 +272,7 @@ async def submit(
 
     if not contest_open:
         await interaction.response.send_message(
-            "🔒 This contest is closed. "
-            "New photos cannot be submitted.",
+            "🔒 This contest is closed. New photos cannot be submitted.",
             ephemeral=True
         )
         return
@@ -321,9 +290,7 @@ async def submit(
 
     if (
         photo.content_type is not None
-        and not photo.content_type.startswith(
-            "image/"
-        )
+        and not photo.content_type.startswith("image/")
     ):
         await interaction.response.send_message(
             "❌ Please submit an image file.",
@@ -337,16 +304,10 @@ async def submit(
 
     votes_by_entry[photo_id] = 0
 
-    if isinstance(
-        interaction.user,
-        discord.Member
-    ):
+    if isinstance(interaction.user, discord.Member):
         nickname = interaction.user.display_name
-
     else:
-        nickname = str(
-            interaction.user
-        )
+        nickname = str(interaction.user)
 
     entry_submitters[photo_id] = {
         "user_id": interaction.user.id,
@@ -372,8 +333,7 @@ async def submit(
     )
 
     confirmation = (
-        "✅ Your photo was submitted "
-        "anonymously as Photo #"
+        "✅ Your photo was submitted anonymously as Photo #"
         + str(photo_id)
         + "!"
     )
@@ -388,13 +348,10 @@ async def submit(
     name="results",
     description="View the current contest results"
 )
-async def results(
-    interaction: discord.Interaction
-):
+async def results(interaction: discord.Interaction):
     if not is_admin(interaction):
         await interaction.response.send_message(
-            "❌ Only administrators can "
-            "view the results.",
+            "❌ Only administrators can view the results.",
             ephemeral=True
         )
         return
@@ -420,13 +377,10 @@ async def results(
     name="entries",
     description="View contest photo owners"
 )
-async def entries(
-    interaction: discord.Interaction
-):
+async def entries(interaction: discord.Interaction):
     if not is_admin(interaction):
         await interaction.response.send_message(
-            "❌ Only administrators can "
-            "view photo owners.",
+            "❌ Only administrators can view photo owners.",
             ephemeral=True
         )
         return
@@ -440,21 +394,13 @@ async def entries(
 
     entry_lines = []
 
-    for photo_id in range(
-        1,
-        entry_counter + 1
-    ):
-        submitter = entry_submitters.get(
-            photo_id
-        )
+    for photo_id in range(1, entry_counter + 1):
+        submitter = entry_submitters.get(photo_id)
 
         if submitter is None:
             owner_text = "Unknown"
-
         else:
-            owner_text = submitter[
-                "nickname"
-            ]
+            owner_text = submitter["nickname"]
 
         line = (
             "📸 Photo #"
@@ -480,15 +426,12 @@ async def entries(
     name="closecontest",
     description="Close the current photo contest"
 )
-async def closecontest(
-    interaction: discord.Interaction
-):
+async def closecontest(interaction: discord.Interaction):
     global contest_open
 
     if not is_admin(interaction):
         await interaction.response.send_message(
-            "❌ Only administrators can "
-            "close the contest.",
+            "❌ Only administrators can close the contest.",
             ephemeral=True
         )
         return
@@ -502,8 +445,7 @@ async def closecontest(
 
     if entry_counter == 0:
         await interaction.response.send_message(
-            "📸 There are no contest photos "
-            "to close.",
+            "📸 There are no contest photos to close.",
             ephemeral=True
         )
         return
@@ -511,26 +453,14 @@ async def closecontest(
     contest_open = False
 
     max_votes = max(
-        votes_by_entry.get(
-            photo_id,
-            0
-        )
-        for photo_id in range(
-            1,
-            entry_counter + 1
-        )
+        votes_by_entry.get(photo_id, 0)
+        for photo_id in range(1, entry_counter + 1)
     )
 
     winners = []
 
-    for photo_id in range(
-        1,
-        entry_counter + 1
-    ):
-        photo_votes = votes_by_entry.get(
-            photo_id,
-            0
-        )
+    for photo_id in range(1, entry_counter + 1):
+        photo_votes = votes_by_entry.get(photo_id, 0)
 
         if photo_votes == max_votes:
             winners.append(photo_id)
@@ -540,15 +470,16 @@ async def closecontest(
     )
 
     if max_votes == 0:
-        winner_text = (
-            "\n\n🏆 No winner — "
-            "no votes were cast."
+        admin_winner_text = (
+            "\n\n🏆 No winner — no votes were cast."
         )
 
     elif len(winners) == 1:
-        winner_text = (
+        winner_photo_id = winners[0]
+
+        admin_winner_text = (
             "\n\n🏆 Winner: Photo #"
-            + str(winners[0])
+            + str(winner_photo_id)
             + " with "
             + str(max_votes)
             + " vote(s)!"
@@ -563,7 +494,7 @@ async def closecontest(
                 + str(photo_id)
             )
 
-        winner_text = (
+        admin_winner_text = (
             "\n\n🏆 Tie: Photos "
             + ", ".join(winner_numbers)
             + " with "
@@ -572,22 +503,117 @@ async def closecontest(
         )
 
     await interaction.response.send_message(
-        results_text + winner_text,
+        results_text + admin_winner_text,
         ephemeral=True
     )
+
+    channel = bot.get_channel(
+        PHOTO_CONTEST_CHANNEL_ID
+    )
+
+    if channel is None:
+        return
+
+    if max_votes == 0:
+        await channel.send(
+            "🏁 **PHOTO CONTEST CLOSED!**\n\n"
+            "No winner this time because no votes were cast."
+        )
+        return
+
+    if len(winners) == 1:
+        winner_photo_id = winners[0]
+
+        submitter = entry_submitters.get(
+            winner_photo_id
+        )
+
+        if submitter is None:
+            winner_name = "Unknown"
+        else:
+            winner_name = (
+                "<@"
+                + str(submitter["user_id"])
+                + ">"
+            )
+
+        public_message = (
+            "🏆 **PHOTO CONTEST WINNER!**\n\n"
+            "📸 **Photo #"
+            + str(winner_photo_id)
+            + "**\n"
+            "🗳️ **"
+            + str(max_votes)
+            + " vote(s)**\n"
+            "👤 Winner: "
+            + winner_name
+            + "\n\n"
+            "🎉 Congratulations!"
+        )
+
+        await channel.send(
+            public_message,
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False
+            )
+        )
+
+    else:
+        public_lines = [
+            "🏆 **PHOTO CONTEST — TIE!**",
+            ""
+        ]
+
+        for photo_id in winners:
+            submitter = entry_submitters.get(
+                photo_id
+            )
+
+            if submitter is None:
+                winner_name = "Unknown"
+            else:
+                winner_name = (
+                    "<@"
+                    + str(submitter["user_id"])
+                    + ">"
+                )
+
+            line = (
+                "📸 **Photo #"
+                + str(photo_id)
+                + "** — "
+                + str(max_votes)
+                + " vote(s) — "
+                + winner_name
+            )
+
+            public_lines.append(line)
+
+        public_lines.append("")
+        public_lines.append(
+            "🎉 Congratulations to the winners!"
+        )
+
+        await channel.send(
+            "\n".join(public_lines),
+            allowed_mentions=discord.AllowedMentions(
+                users=True,
+                roles=False,
+                everyone=False
+            )
+        )
 
 
 @bot.tree.command(
     name="newcontest",
     description="Start a new photo contest"
 )
-async def newcontest(
-    interaction: discord.Interaction
-):
+async def newcontest(interaction: discord.Interaction):
     if not is_admin(interaction):
         await interaction.response.send_message(
-            "❌ Only administrators can "
-            "start a new contest.",
+            "❌ Only administrators can start a new contest.",
             ephemeral=True
         )
         return
@@ -609,9 +635,7 @@ async def newcontest(
     )
 
 
-TOKEN = os.getenv(
-    "DISCORD_TOKEN"
-)
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 if not TOKEN:
     raise ValueError(
