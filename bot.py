@@ -140,17 +140,26 @@ class NewContestConfirmView(discord.ui.View):
         )
 
         deleted_photos = 0
+        deleted_announcements = 0
 
         if channel is not None:
             async for message in channel.history(limit=None):
-                if (
-                    message.author.id
-                    == interaction.client.user.id
-                    and message.content.startswith("📸 Photo #")
-                ):
+                if message.author.id != interaction.client.user.id:
+                    continue
+
+                if message.content.startswith("📸 Photo #"):
                     try:
                         await message.delete()
                         deleted_photos += 1
+                    except discord.HTTPException:
+                        pass
+
+                elif message.content.startswith(
+                    "📸 **NEW PHOTO CONTEST!**"
+                ):
+                    try:
+                        await message.delete()
+                        deleted_announcements += 1
                     except discord.HTTPException:
                         pass
 
@@ -177,6 +186,9 @@ class NewContestConfirmView(discord.ui.View):
                 "🗑️ Deleted "
                 + str(deleted_photos)
                 + " old photo post(s).\n"
+                "🧹 Deleted "
+                + str(deleted_announcements)
+                + " old contest announcement(s).\n"
                 "📸 The next submission will be Photo #1.\n"
                 "🗳️ Voting is open."
             ),
@@ -380,6 +392,14 @@ async def submit(
             ephemeral=True
         )
         return
+
+    for submitter in entry_submitters.values():
+        if submitter["user_id"] == interaction.user.id:
+            await interaction.response.send_message(
+                "❌ You have already submitted a photo to this contest.",
+                ephemeral=True
+            )
+            return
 
     channel = bot.get_channel(
         PHOTO_CONTEST_CHANNEL_ID
@@ -775,10 +795,12 @@ async def newcontest(
         "🎨 Theme: **"
         + theme
         + "**\n\n"
-        "This will delete all photo posts from "
-        "the previous contest and reset the photo "
-        "numbers, votes, and submitter list.\n\n"
-        "🗑️ Deleted photo posts cannot be restored."
+        "This will delete all photo posts and the old "
+        "contest announcement from the previous contest. "
+        "The rules post will stay in the channel.\n\n"
+        "Photo numbers, votes, and the submitter list "
+        "will also be reset.\n\n"
+        "🗑️ Deleted contest posts cannot be restored."
     )
 
     await interaction.response.send_message(
