@@ -1,4 +1,5 @@
 import os
+import time
 import discord
 from discord.ext import commands
 
@@ -15,6 +16,17 @@ entry_photo_urls = {}
 contest_phase = "closed"
 contest_id = 1
 current_theme = None
+
+submission_deadline = None
+voting_deadline = None
+
+
+def discord_timestamp(timestamp):
+    return "<t:" + str(int(timestamp)) + ":F>"
+
+
+def discord_relative_timestamp(timestamp):
+    return "<t:" + str(int(timestamp)) + ":R>"
 
 
 class VoteButton(discord.ui.View):
@@ -154,6 +166,8 @@ class NewContestConfirmView(discord.ui.View):
         global contest_phase
         global contest_id
         global current_theme
+        global submission_deadline
+        global voting_deadline
 
         channel = interaction.client.get_channel(
             PHOTO_CONTEST_CHANNEL_ID
@@ -202,6 +216,16 @@ class NewContestConfirmView(discord.ui.View):
         contest_phase = "submissions"
         current_theme = self.theme
 
+        contest_start_time = int(time.time())
+
+        submission_deadline = (
+            contest_start_time + (5 * 24 * 60 * 60)
+        )
+
+        voting_deadline = (
+            contest_start_time + (7 * 24 * 60 * 60)
+        )
+
         for item in self.children:
             item.disabled = True
 
@@ -218,7 +242,16 @@ class NewContestConfirmView(discord.ui.View):
                 + str(deleted_announcements)
                 + " old contest announcement(s).\n"
                 "📸 Photo submissions are open.\n"
-                "⏳ Voting is not open yet."
+                "⏳ Voting is not open yet.\n\n"
+                "⏰ Submissions close: "
+                + discord_timestamp(submission_deadline)
+                + "\n"
+                + discord_relative_timestamp(submission_deadline)
+                + "\n"
+                "🏆 Voting closes: "
+                + discord_timestamp(voting_deadline)
+                + "\n"
+                + discord_relative_timestamp(voting_deadline)
             ),
             view=self
         )
@@ -231,7 +264,15 @@ class NewContestConfirmView(discord.ui.View):
                 + "**\n\n"
                 "📷 Submit your best photo matching this week's theme!\n"
                 "✅ Photo submissions are open.\n"
-                "⏳ Voting will open later."
+                "⏳ Voting will open later.\n\n"
+                "⏰ **Submissions close:** "
+                + discord_timestamp(submission_deadline)
+                + "\n"
+                "🗳️ **Voting begins:** "
+                + discord_timestamp(submission_deadline)
+                + "\n"
+                "🕒 "
+                + discord_relative_timestamp(submission_deadline)
             )
 
             await channel.send(announcement)
@@ -569,6 +610,18 @@ async def startvoting(interaction: discord.Interaction):
             "🚫 You cannot vote for your own photo.\n"
             "🔄 You may change your vote before voting closes."
         )
+
+        if voting_deadline is not None:
+            announcement += (
+                "\n\n"
+                "⏰ **Voting closes:** "
+                + discord_timestamp(voting_deadline)
+                + "\n"
+                "🕒 "
+                + discord_relative_timestamp(voting_deadline)
+                + "\n"
+                "🏆 The winner will be announced after voting closes."
+            )
 
         await channel.send(announcement)
 
@@ -908,7 +961,10 @@ async def newcontest(
         "will also be reset.\n\n"
         "📸 The new contest will begin in the "
         "SUBMISSIONS phase.\n"
-        "🗳️ Voting must be opened later with /startvoting.\n\n"
+        "⏰ Submissions will run for 5 days.\n"
+        "🗳️ Voting will then run for 2 days.\n"
+        "🗳️ Voting must still be opened manually with /startvoting.\n"
+        "🏆 The contest must still be closed manually with /closecontest.\n\n"
         "🗑️ Deleted contest posts cannot be restored."
     )
 
